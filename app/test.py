@@ -2,8 +2,10 @@ from app.services.code_preprocessing.code_preprocessor import VectorDBManager
 from app.services.llm.llm_wrapper import LLMService
 from app.services.data_fetcher.gitlab_fetcher import CodeSyncManager
 
-sync_manager = CodeSyncManager()
-sync_manager.synchronize()
+import pandas as pd
+
+# sync_manager = CodeSyncManager()
+# sync_manager.synchronize()
 
 
 # db_manager = VectorDBManager()
@@ -20,3 +22,6 @@ sync_manager.synchronize()
 #     print(f"Источник (метаданные): {doc.metadata.get('source', 'N/A')}")
 #     print("Содержимое:")
 #     print(doc.page_content)
+
+data = pd.read_csv('data/jira_tasks/tasks.csv')
+print(data.columns)

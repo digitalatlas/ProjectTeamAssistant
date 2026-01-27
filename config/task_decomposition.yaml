@@ -1,0 +1,119 @@
+# Backend (Python)
+# -------------------------------------------------------------------
+backend:
+  - id: backend_api_endpoint
+    description: "Проектирование и реализация новых эндпоинтов API (REST/GraphQL)"
+  - id: backend_api_update
+    description: "Изменение существующих эндпоинтов API (обновление контрактов, DTO)"
+  - id: backend_business_logic
+    description: "Реализация основной бизнес-логики, сервисов и обработчиков"
+  - id: backend_db_interaction
+    description: "Разработка логики взаимодействия с БД (запросы, ORM-модели)"
+  - id: backend_auth
+    description: "Реализация или модификация механизмов аутентификации и авторизации"
+  - id: backend_validation
+    description: "Добавление/обновление валидации входящих данных"
+  - id: backend_serialization
+    description: "Настройка сериализаторов для форматирования ответов API"
+  - id: backend_async_task
+    description: "Создание или обновление асинхронных задач (Celery, Dramatiq)"
+  - id: backend_integration_external
+    description: "Интеграция с внешними сервисами и API"
+  - id: backend_performance_optimization
+    description: "Оптимизация производительности, кеширование"
+  - id: backend_error_handling
+    description: "Проработка и логирование ошибок, кастомные исключения"
+  - id: backend_refactoring
+    description: "Рефакторинг существующего кода для улучшения читаемости и поддержки"
+
+# Frontend (React)
+# -------------------------------------------------------------------
+frontend:
+  - id: frontend_ui_component_new
+    description: "Создание новых UI компонентов (кнопки, формы, модальные окна)"
+  - id: frontend_ui_component_update
+    description: "Модификация существующих UI компонентов"
+  - id: frontend_page_layout
+    description: "Верстка страниц и комплексных блоков по макетам"
+  - id: frontend_state_management
+    description: "Работа с состоянием (Redux, MobX, Context API): actions, reducers, stores"
+  - id: frontend_api_integration
+    description: "Интеграция с Backend API: создание сервисов для запросов, обработка данных"
+  - id: frontend_client_logic
+    description: "Реализация клиентской логики и интерактивности"
+  - id: frontend_routing
+    description: "Настройка и обновление маршрутизации (React Router)"
+  - id: frontend_forms
+    description: "Разработка форм и валидации на стороне клиента (Formik, React Hook Form)"
+  - id: frontend_auth
+    description: "Реализация логики аутентификации (работа с токенами, редиректы)"
+  - id: frontend_optimization
+    description: "Оптимизация производительности (lazy loading, memoization, code splitting)"
+  - id: frontend_accessibility
+    description: "Обеспечение доступности (Accessibility, a11y)"
+  - id: frontend_refactoring
+    description: "Рефакторинг компонентов и логики для переиспользования и чистоты кода"
+
+# Database
+# -------------------------------------------------------------------
+database:
+  - id: db_migration_create
+    description: "Создание новой миграции для изменения схемы БД (Alembic, Django Migrations)"
+  - id: db_schema_update
+    description: "Проектирование изменений в схеме БД (новые таблицы, поля, индексы)"
+  - id: db_data_migration
+    description: "Создание скрипта для миграции/трансформации данных"
+  - id: db_query_optimization
+    description: "Анализ и оптимизация медленных SQL-запросов"
+  - id: db_seeding
+    description: "Написание или обновление сидов для тестовых данных"
+
+# Testing
+# -------------------------------------------------------------------
+testing:
+  - id: testing_unit_backend
+    description: "Написание Unit-тестов для backend (PyTest, Unittest)"
+  - id: testing_integration_backend
+    description: "Написание интеграционных тестов для backend (взаимодействие компонентов)"
+  - id: testing_e2e_backend
+    description: "Написание E2E или API-тестов для backend"
+  - id: testing_unit_frontend
+    description: "Написание Unit-тестов для frontend (Jest, React Testing Library)"
+  - id: testing_component_frontend
+    description: "Написание компонентных тестов для frontend (Storybook, Cypress)"
+  - id: testing_e2e_frontend
+    description: "Написание E2E-тестов для пользовательских сценариев (Cypress, Playwright)"
+  - id: testing_load
+    description: "Проведение нагрузочного тестирования"
+  - id: testing_manual_qa
+    description: "Ручное тестирование и проверка функциональности"
+
+# DevOps
+# -------------------------------------------------------------------
+devops:
+  - id: devops_ci_cd_pipeline
+    description: "Настройка или обновление CI/CD пайплайнов (GitLab CI, GitHub Actions)"
+  - id: devops_deployment_config
+    description: "Обновление конфигурации развертывания (Docker, Kubernetes)"
+  - id: devops_env_variables
+    description: "Добавление или обновление переменных окружения"
+  - id: devops_infra_changes
+    description: "Изменения в инфраструктуре (Terraform, Ansible)"
+  - id: devops_monitoring
+    description: "Настройка мониторинга, алертов и логирования (Prometheus, Grafana, ELK)"
+  - id: devops_build_scripts
+    description: "Обновление сборочных скриптов и конфигураций"
+
+# Documentation
+# -------------------------------------------------------------------
+documentation:
+  - id: docs_api
+    description: "Написание или обновление документации API (Swagger/OpenAPI, Redoc)"
+  - id: docs_developer
+    description: "Обновление документации для разработчиков (README, Confluence)"
+  - id: docs_user
+    description: "Создание или обновление пользовательской документации"
+  - id: docs_code_comments
+    description: "Добавление комментариев и docstrings в коде"
+  - id: docs_architectural
+    description: "Описание архитектурных решений и диаграмм"
