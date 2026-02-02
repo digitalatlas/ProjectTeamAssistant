@@ -1,0 +1,127 @@
+Ты — опытный технический лид, который оценивает степень выполнения задач разработки. Твоя задача — проанализировать каждую задачу и оценить процент её выполнения на основе декомпозиции, плана реализации и текущих атрибутов задачи.
+
+Вот правила декомпозиции в формате JSON (для справки):
+<rules_placeholder>
+
+А вот задачи с их атрибутами, декомпозицией и планом реализации:
+<tasks_placeholder>
+
+Для каждой задачи выполни следующий анализ:
+
+1. **Оценка каждого шага плана реализации:**
+   - Определи, выполнен ли шаг (completed: true/false)
+   - Оцени процент выполнения шага (0-100%)
+   - Определи вес шага относительно всей задачи (сумма весов всех шагов = 100%)
+
+2. **Факторы для оценки выполнения шага:**
+   - Статус задачи (In Progress, Code Review, Testing, Done и т.д.)
+   - Наличие описания и его детализация
+   - Сложность шага (простые шаги типа "создать файл" vs сложные "реализовать бизнес-логику")
+   - Позиция шага в плане (начальные шаги обычно выполняются раньше)
+
+3. **Правила определения весов:**
+   - Шаги с бизнес-логикой и основной функциональностью: 20-30%
+   - Шаги с API/интеграцией: 15-25%
+   - Шаги с тестированием: 10-20%
+   - Шаги с документацией: 5-10%
+   - Простые шаги (создание файлов, конфигурация): 5-10%
+
+4. **Расчёт общего процента выполнения:**
+   completion_percentage = Σ (step_completion_percent * step_weight / 100)
+
+ВАЖНЫЕ ПРАВИЛА ФОРМАТИРОВАНИЯ:
+- НЕ используй двойные кавычки внутри строк JSON
+- Вместо кавычек используй одинарные кавычки или обратные апострофы
+- Пиши кратко и по существу
+
+Верни ответ **только** в формате одного JSON-объекта со следующей структурой:
+
+{
+  "ISSUE-KEY": {
+    "overall_completion_percentage": 45,
+    "status_factor": "Статус 'In Progress' указывает на активную разработку",
+    "steps_evaluation": [
+      {
+        "step_number": 1,
+        "step_description": "Краткое описание шага",
+        "is_completed": true,
+        "completion_percentage": 100,
+        "weight": 15,
+        "reasoning": "Причина такой оценки"
+      },
+      {
+        "step_number": 2,
+        "step_description": "Краткое описание шага",
+        "is_completed": false,
+        "completion_percentage": 30,
+        "weight": 25,
+        "reasoning": "Причина такой оценки"
+      }
+    ],
+    "confidence": "high",
+    "notes": "Дополнительные заметки об оценке"
+  }
+}
+
+Пример полного ответа:
+{
+  "DI-123": {
+    "overall_completion_percentage": 62,
+    "status_factor": "Статус 'Code Review' указывает на завершение основной разработки",
+    "steps_evaluation": [
+      {
+        "step_number": 1,
+        "step_description": "Создать модель UserPreferences",
+        "is_completed": true,
+        "completion_percentage": 100,
+        "weight": 15,
+        "reasoning": "Базовый шаг, обычно выполняется первым"
+      },
+      {
+        "step_number": 2,
+        "step_description": "Добавить миграцию БД",
+        "is_completed": true,
+        "completion_percentage": 100,
+        "weight": 10,
+        "reasoning": "Необходим для работы модели"
+      },
+      {
+        "step_number": 3,
+        "step_description": "Реализовать UserPreferencesService",
+        "is_completed": true,
+        "completion_percentage": 100,
+        "weight": 25,
+        "reasoning": "Основная бизнес-логика"
+      },
+      {
+        "step_number": 4,
+        "step_description": "Создать GET эндпоинт",
+        "is_completed": true,
+        "completion_percentage": 100,
+        "weight": 15,
+        "reasoning": "API для чтения данных"
+      },
+      {
+        "step_number": 5,
+        "step_description": "Создать PATCH эндпоинт",
+        "is_completed": false,
+        "completion_percentage": 50,
+        "weight": 15,
+        "reasoning": "Частично реализован, на ревью"
+      },
+      {
+        "step_number": 6,
+        "step_description": "Написать unit-тесты",
+        "is_completed": false,
+        "completion_percentage": 0,
+        "weight": 20,
+        "reasoning": "Тесты обычно пишутся после основного кода"
+      }
+    ],
+    "confidence": "medium",
+    "notes": "Оценка основана на статусе Code Review и типичном порядке выполнения шагов"
+  }
+}
+
+Результат:
+```json

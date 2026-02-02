@@ -1,6 +1,60 @@
 import pandas as pd
 from dataclasses import dataclass, field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
+
+
+@dataclass
+class StepEvaluation:
+    """Оценка выполнения одного шага плана реализации."""
+    step_number: int
+    step_description: str
+    is_completed: bool
+    completion_percentage: float  # 0-100
+    weight: float  # Вес шага в общей задаче (сумма всех весов = 100)
+    reasoning: str  # Обоснование оценки
+
+    def weighted_completion(self) -> float:
+        """Возвращает взвешенный вклад шага в общий процент выполнения."""
+        return (self.completion_percentage * self.weight) / 100
+
+
+@dataclass
+class CompletionEvaluation:
+    """Результат оценки выполнения задачи."""
+    overall_completion_percentage: float  # Общий процент выполнения (0-100)
+    status_factor: str  # Описание влияния статуса на оценку
+    steps_evaluation: List[StepEvaluation] = field(default_factory=list)
+    confidence: str = "medium"  # high, medium, low
+    notes: Optional[str] = None  # Дополнительные заметки
+
+    def calculate_completion_from_steps(self) -> float:
+        """Рассчитывает процент выполнения на основе оценки шагов."""
+        if not self.steps_evaluation:
+            return 0.0
+        return sum(step.weighted_completion() for step in self.steps_evaluation)
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'CompletionEvaluation':
+        """Создаёт объект CompletionEvaluation из словаря (результата парсинга JSON)."""
+        steps = []
+        for step_data in data.get('steps_evaluation', []):
+            step = StepEvaluation(
+                step_number=step_data.get('step_number', 0),
+                step_description=step_data.get('step_description', ''),
+                is_completed=step_data.get('is_completed', False),
+                completion_percentage=float(step_data.get('completion_percentage', 0)),
+                weight=float(step_data.get('weight', 0)),
+                reasoning=step_data.get('reasoning', '')
+            )
+            steps.append(step)
+
+        return cls(
+            overall_completion_percentage=float(data.get('overall_completion_percentage', 0)),
+            status_factor=data.get('status_factor', ''),
+            steps_evaluation=steps,
+            confidence=data.get('confidence', 'medium'),
+            notes=data.get('notes')
+        )
 
 
 # Для того чтобы сделать код более читабельным и удобным для IDE,
@@ -21,15 +75,37 @@ class JiraTask:
     due_date: Optional[str] = None
     decomposition: Optional[List[str]] = None
     implementation_plan: Optional[List[str]] = None
+    completion_evaluation: Optional[CompletionEvaluation] = None
 
     # Мы добавляем этот метод, чтобы дата-класс мог принимать 'сырые' данные из pandas,
     # где пустые значения могут быть None или NaN, и корректно их обрабатывать.
     def __post_init__(self):
         # Преобразуем компоненты из строки (если они есть) в список
-        if self.components and isinstance(self.components, str):
+        if isinstance(self.components, str):
             self.components = [comp.strip() for comp in self.components.split(',')]
-        elif not self.components or pd.isna(self.components):
+        elif isinstance(self.components, list):
+            # Уже список, оставляем как есть
+            pass
+        elif self.components is None:
             self.components = []
+        else:
+            # Проверяем на NaN (для pandas)
+            try:
+                if pd.isna(self.components):
+                    self.components = []
+            except (ValueError, TypeError):
+                # Если pd.isna не может обработать, оставляем пустой список
+                self.components = []
+
+    def get_completion_percentage(self) -> float:
+        """Возвращает процент выполнения задачи."""
+        if self.completion_evaluation:
+            return self.completion_evaluation.overall_completion_percentage
+        return 0.0
+
+    def is_fully_completed(self) -> bool:
+        """Проверяет, полностью ли выполнена задача."""
+        return self.get_completion_percentage() >= 100.0
 
 
 class JiraCsvLoader:
