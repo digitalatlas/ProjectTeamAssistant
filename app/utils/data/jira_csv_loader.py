@@ -19,6 +19,8 @@ class JiraTask:
     assignee: Optional[str] = None
     components: List[str] = field(default_factory=list)
     due_date: Optional[str] = None
+    decomposition: Optional[List[str]] = None
+    implementation_plan: Optional[List[str]] = None
 
     # Мы добавляем этот метод, чтобы дата-класс мог принимать 'сырые' данные из pandas,
     # где пустые значения могут быть None или NaN, и корректно их обрабатывать.
@@ -65,6 +67,9 @@ class JiraCsvLoader:
         :return: Список задач.
         """
         try:
+            import os
+            current_directory = os.getcwd()
+            print(current_directory)
             # Читаем CSV с помощью pandas
             df = pd.read_csv(self.filepath)
 
@@ -78,6 +83,7 @@ class JiraCsvLoader:
             df = df[list(self.COLUMN_MAPPING.keys())]
             df = df.rename(columns=self.COLUMN_MAPPING)
 
+            df = df[df['components'] == 'Dev Python']
             # Заменяем 'NaN' (стандартное значение для пустых ячеек в pandas) на None
             # Это важно для корректной работы с Optional типами в дата-классе
             df = df.where(pd.notnull(df), None)

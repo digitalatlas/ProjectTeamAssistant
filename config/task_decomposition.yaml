@@ -1,6 +1,4 @@
-# Backend (Python)
-# -------------------------------------------------------------------
-backend:
+decomposition_rules:
   - id: backend_api_endpoint
     description: "Проектирование и реализация новых эндпоинтов API (REST/GraphQL)"
   - id: backend_api_update
@@ -25,10 +23,6 @@ backend:
     description: "Проработка и логирование ошибок, кастомные исключения"
   - id: backend_refactoring
     description: "Рефакторинг существующего кода для улучшения читаемости и поддержки"
-
-# Frontend (React)
-# -------------------------------------------------------------------
-frontend:
   - id: frontend_ui_component_new
     description: "Создание новых UI компонентов (кнопки, формы, модальные окна)"
   - id: frontend_ui_component_update
@@ -53,10 +47,6 @@ frontend:
     description: "Обеспечение доступности (Accessibility, a11y)"
   - id: frontend_refactoring
     description: "Рефакторинг компонентов и логики для переиспользования и чистоты кода"
-
-# Database
-# -------------------------------------------------------------------
-database:
   - id: db_migration_create
     description: "Создание новой миграции для изменения схемы БД (Alembic, Django Migrations)"
   - id: db_schema_update
@@ -67,10 +57,6 @@ database:
     description: "Анализ и оптимизация медленных SQL-запросов"
   - id: db_seeding
     description: "Написание или обновление сидов для тестовых данных"
-
-# Testing
-# -------------------------------------------------------------------
-testing:
   - id: testing_unit_backend
     description: "Написание Unit-тестов для backend (PyTest, Unittest)"
   - id: testing_integration_backend
@@ -87,10 +73,6 @@ testing:
     description: "Проведение нагрузочного тестирования"
   - id: testing_manual_qa
     description: "Ручное тестирование и проверка функциональности"
-
-# DevOps
-# -------------------------------------------------------------------
-devops:
   - id: devops_ci_cd_pipeline
     description: "Настройка или обновление CI/CD пайплайнов (GitLab CI, GitHub Actions)"
   - id: devops_deployment_config
@@ -103,10 +85,6 @@ devops:
     description: "Настройка мониторинга, алертов и логирования (Prometheus, Grafana, ELK)"
   - id: devops_build_scripts
     description: "Обновление сборочных скриптов и конфигураций"
-
-# Documentation
-# -------------------------------------------------------------------
-documentation:
   - id: docs_api
     description: "Написание или обновление документации API (Swagger/OpenAPI, Redoc)"
   - id: docs_developer

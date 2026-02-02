@@ -81,7 +81,7 @@ class VectorDBManager:
 
         print(f"Векторная база данных успешно создана в {self.persist_directory}")
 
-    def get_retriever(self):
+    def get_retriever(self, k: int = 5):
         """
         Метод для получения объекта retriever для последующего поиска.
         """
@@ -91,24 +91,6 @@ class VectorDBManager:
                 persist_directory=self.persist_directory,
                 embedding_function=self.embedding_function
             )
-        return self.vector_store.as_retriever()
-
-
-# --- Пример использования ---
-if __name__ == "__main__":
-    db_manager = VectorDBManager()
-    db_manager.create_index_from_directory()
-
-    print("\n--- Тестирование поиска в созданной БД ---")
-    query = "как проверить права пользователя?"
-
-    # Получаем retriever и выполняем поиск
-    retriever = db_manager.get_retriever()
-    search_results = retriever.invoke(query)
-
-    print(f"\nРезультаты поиска по запросу: '{query}'")
-    for doc in search_results:
-        print("\n--- НАЙДЕННЫЙ ФРАГМЕНТ ---")
-        print(f"Источник (метаданные): {doc.metadata.get('source', 'N/A')}")
-        print("Содержимое:")
-        print(doc.page_content)
+        return self.vector_store.as_retriever(
+            search_kwargs={'k': k}
+        )
