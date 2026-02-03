@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional
 import sys
 import os
 import random
+import json
 
 # Добавляем корневую директорию проекта в путь
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -81,6 +82,60 @@ def load_tasks_with_mock_data(csv_path: str) -> List[JiraTask]:
     # Добавляем моковые оценки выполнения
     for task in tasks:
         task.completion_evaluation = create_mock_completion_evaluation(task)
+    
+    return tasks
+
+
+def load_tasks_from_json(json_path: str) -> List[JiraTask]:
+    """
+    Загружает задачи из JSON файла (результат пайплайна).
+    Восстанавливает полные данные включая оценки выполнения.
+    """
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    tasks = []
+    for task_data in data:
+        # Создаём объект JiraTask
+        task = JiraTask(
+            issue_key=task_data.get('issue_key', ''),
+            issue_id=task_data.get('issue_id', 0),
+            summary=task_data.get('summary', ''),
+            status=task_data.get('status', ''),
+            created=task_data.get('created', ''),
+            updated=task_data.get('updated', ''),
+            description=task_data.get('description'),
+            assignee=task_data.get('assignee'),
+            components=task_data.get('components', []),
+            due_date=task_data.get('due_date'),
+            decomposition=task_data.get('decomposition'),
+            implementation_plan=task_data.get('implementation_plan')
+        )
+        
+        # Восстанавливаем оценку выполнения, если есть
+        if 'completion_evaluation' in task_data and task_data['completion_evaluation']:
+            eval_data = task_data['completion_evaluation']
+            steps = []
+            for step_data in eval_data.get('steps_evaluation', []):
+                step = StepEvaluation(
+                    step_number=step_data.get('step_number', 0),
+                    step_description=step_data.get('step_description', ''),
+                    is_completed=step_data.get('is_completed', False),
+                    completion_percentage=float(step_data.get('completion_percentage', 0)),
+                    weight=float(step_data.get('weight', 0)),
+                    reasoning=step_data.get('reasoning', '')
+                )
+                steps.append(step)
+            
+            task.completion_evaluation = CompletionEvaluation(
+                overall_completion_percentage=float(eval_data.get('overall_completion_percentage', 0)),
+                status_factor=eval_data.get('status_factor', ''),
+                steps_evaluation=steps,
+                confidence=eval_data.get('confidence', 'medium'),
+                notes=eval_data.get('notes')
+            )
+        
+        tasks.append(task)
     
     return tasks
 
@@ -199,21 +254,43 @@ def main():
     st.title("📊 Дашборд выполнения задач")
     st.markdown("---")
     
+    # Проверяем, передан ли путь к JSON через переменную окружения
+    env_json_path = os.environ.get("PIPELINE_JSON_PATH")
+    
     # Боковая панель с настройками
     with st.sidebar:
         st.header("⚙️ Настройки")
         
+        # Определяем доступные источники данных
+        data_sources = ["Демо-данные", "CSV файл", "JSON файл (результат пайплайна)"]
+        
+        # Если передан путь через переменную окружения, выбираем JSON по умолчанию
+        default_index = 2 if env_json_path else 0
+        
         data_source = st.radio(
             "Источник данных:",
-            ["Демо-данные", "CSV файл"]
+            data_sources,
+            index=default_index
         )
         
         csv_path = None
+        json_path = None
+        
         if data_source == "CSV файл":
             csv_path = st.text_input(
                 "Путь к CSV файлу:",
                 value="data/jira_tasks/tasks.csv"
             )
+        elif data_source == "JSON файл (результат пайплайна)":
+            default_json = env_json_path or "data/output/pipeline_results.json"
+            json_path = st.text_input(
+                "Путь к JSON файлу:",
+                value=default_json
+            )
+            if json_path and os.path.exists(json_path):
+                st.success("✅ JSON файл найден")
+            elif json_path:
+                st.warning("⚠️ Файл не найден")
         
         st.markdown("---")
         st.markdown("""
@@ -223,16 +300,30 @@ def main():
         - 🔴 **Требует внимания** (<50%)
         
         ### ℹ️ Информация
-        Столбцы **Смета**, **Эпик** и **Ремейнинг** 
-        заполнены моковыми данными для тестирования.
+        При загрузке из **JSON** используются
+        реальные данные из пайплайна.
+        
+        При загрузке из **CSV** или **Демо**
+        используются моковые оценки.
         """)
     
     # Загрузка данных
     try:
-        if data_source == "CSV файл" and csv_path:
+        if data_source == "JSON файл (результат пайплайна)" and json_path:
+            tasks = load_tasks_from_json(json_path)
+            st.sidebar.info(f"📊 Загружено {len(tasks)} задач из JSON")
+        elif data_source == "CSV файл" and csv_path:
             tasks = load_tasks_with_mock_data(csv_path)
         else:
             tasks = create_demo_tasks()
+    except FileNotFoundError as e:
+        st.error(f"Файл не найден: {e}")
+        tasks = create_demo_tasks()
+        st.info("Используются демо-данные")
+    except json.JSONDecodeError as e:
+        st.error(f"Ошибка парсинга JSON: {e}")
+        tasks = create_demo_tasks()
+        st.info("Используются демо-данные")
     except Exception as e:
         st.error("Ошибка загрузки данных: " + str(e))
         tasks = create_demo_tasks()
@@ -358,15 +449,15 @@ def main():
             for row in filtered_data
         ])
         
-        # Стилизация таблицы
+        # Стилизация таблицы с контрастными цветами
         def highlight_completion(val):
             if isinstance(val, (int, float)):
                 if val >= 75:
-                    return 'background-color: #d4edda'
+                    return 'background-color: #155724; color: #ffffff'  # Тёмно-зелёный фон, белый текст
                 elif val >= 50:
-                    return 'background-color: #fff3cd'
+                    return 'background-color: #856404; color: #ffffff'  # Тёмно-жёлтый/коричневый фон, белый текст
                 else:
-                    return 'background-color: #f8d7da'
+                    return 'background-color: #721c24; color: #ffffff'  # Тёмно-красный фон, белый текст
             return ''
         
         styled_df = df_display.style.applymap(

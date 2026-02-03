@@ -5,7 +5,6 @@
 
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
-import random
 
 from app.utils.data.jira_csv_loader import JiraTask, CompletionEvaluation
 
@@ -28,68 +27,57 @@ class DashboardService:
     """
     Сервис для формирования данных дашборда.
     Преобразует задачи в формат, подходящий для отображения в иерархической таблице.
+    
+    TODO: Для подключения реальных данных:
+    1. Добавить поля estimate, epic, remaining в JiraTask
+    2. Обновить JiraCsvLoader.COLUMN_MAPPING для новых колонок
+    3. Заменить вызовы _get_mock_* на task.estimate, task.epic, task.remaining
     """
 
-    # Моковые данные для смет
-    MOCK_ESTIMATES = [
-        "Смета Q1-2026",
-        "Смета Q2-2026",
-        "Бюджет разработки",
-        "Техническое обслуживание",
-        "Инновационный проект"
-    ]
-
-    # Моковые данные для эпиков
-    MOCK_EPICS = [
-        "EPIC-001: Модернизация платформы",
-        "EPIC-002: Интеграция с внешними системами",
-        "EPIC-003: Улучшение UX",
-        "EPIC-004: Оптимизация производительности",
-        "EPIC-005: Безопасность и аудит"
-    ]
+    # Моковые значения-заглушки (одинаковые для всех задач)
+    MOCK_ESTIMATE = "[MOCK] Смета не указана"
+    MOCK_EPIC = "[MOCK] Эпик не указан"
+    MOCK_REMAINING = "[MOCK] N/A"
 
     def __init__(self):
         """Инициализация сервиса."""
-        self._estimate_cache: Dict[str, str] = {}
-        self._epic_cache: Dict[str, str] = {}
+        pass
 
-    def _get_mock_estimate(self, task_key: str) -> str:
+    def _get_estimate(self, task: JiraTask) -> str:
         """
-        Возвращает моковую смету для задачи.
-        Кэширует результат для консистентности.
+        Возвращает смету для задачи.
+        
+        TODO: Заменить на реальные данные:
+            return task.estimate if hasattr(task, 'estimate') and task.estimate else self.MOCK_ESTIMATE
         """
-        if task_key not in self._estimate_cache:
-            self._estimate_cache[task_key] = random.choice(self.MOCK_ESTIMATES)
-        return self._estimate_cache[task_key]
+        # Проверяем, есть ли реальные данные в задаче
+        if hasattr(task, 'estimate') and task.estimate:
+            return task.estimate
+        return self.MOCK_ESTIMATE
 
-    def _get_mock_epic(self, task_key: str) -> str:
+    def _get_epic(self, task: JiraTask) -> str:
         """
-        Возвращает моковый эпик для задачи.
-        Кэширует результат для консистентности.
+        Возвращает эпик для задачи.
+        
+        TODO: Заменить на реальные данные:
+            return task.epic if hasattr(task, 'epic') and task.epic else self.MOCK_EPIC
         """
-        if task_key not in self._epic_cache:
-            self._epic_cache[task_key] = random.choice(self.MOCK_EPICS)
-        return self._epic_cache[task_key]
+        # Проверяем, есть ли реальные данные в задаче
+        if hasattr(task, 'epic') and task.epic:
+            return task.epic
+        return self.MOCK_EPIC
 
-    def _get_mock_remaining(self, task: JiraTask) -> str:
+    def _get_remaining(self, task: JiraTask) -> str:
         """
-        Возвращает моковый ремейнинг для задачи.
-        В реальности будет получаться из Jira API.
+        Возвращает ремейнинг для задачи.
+        
+        TODO: Заменить на реальные данные из Jira API:
+            return task.remaining if hasattr(task, 'remaining') and task.remaining else self.MOCK_REMAINING
         """
-        if task.completion_evaluation:
-            # Генерируем ремейнинг на основе процента выполнения
-            completion = task.completion_evaluation.overall_completion_percentage
-            if completion >= 100:
-                return "0h"
-            elif completion >= 75:
-                return f"{random.randint(1, 4)}h"
-            elif completion >= 50:
-                return f"{random.randint(4, 8)}h"
-            elif completion >= 25:
-                return f"{random.randint(8, 16)}h"
-            else:
-                return f"{random.randint(16, 40)}h"
-        return "N/A"
+        # Проверяем, есть ли реальные данные в задаче
+        if hasattr(task, 'remaining') and task.remaining:
+            return task.remaining
+        return self.MOCK_REMAINING
 
     def _format_status_details(self, task: JiraTask) -> str:
         """
@@ -156,14 +144,14 @@ class DashboardService:
             completion = task.completion_evaluation.overall_completion_percentage
 
         return DashboardRow(
-            estimate=self._get_mock_estimate(task.issue_key),
-            epic=self._get_mock_epic(task.issue_key),
+            estimate=self._get_estimate(task),
+            epic=self._get_epic(task),
             component=component,
             task_key=task.issue_key,
             task_summary=task.summary,
             status_details=self._format_status_details(task),
             completion_percentage=completion,
-            remaining=self._get_mock_remaining(task),
+            remaining=self._get_remaining(task),
             steps=self._extract_steps_details(task)
         )
 
