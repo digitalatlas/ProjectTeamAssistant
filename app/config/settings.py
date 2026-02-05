@@ -44,6 +44,7 @@ class Settings:
 
         # --- Pipeline Settings ---
         self.CSV_DEFAULT_FOLDER: str = os.getenv("CSV_DEFAULT_FOLDER", "data/jira_tasks/")
+        self.JSON_OUTPUT_FOLDER: str = project_root / os.getenv("JSON_OUTPUT_FOLDER", "data/output/")
 
 
 settings = Settings()

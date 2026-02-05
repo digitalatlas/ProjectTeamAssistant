@@ -71,7 +71,7 @@ class JiraTask:
     updated: str
     description: Optional[str] = None
     assignee: Optional[str] = None
-    components: List[str] = field(default_factory=list)
+    project_role: List[str] = field(default_factory=list)
     due_date: Optional[str] = None
     decomposition: Optional[List[str]] = None
     implementation_plan: Optional[List[str]] = None
@@ -80,22 +80,22 @@ class JiraTask:
     # Мы добавляем этот метод, чтобы дата-класс мог принимать 'сырые' данные из pandas,
     # где пустые значения могут быть None или NaN, и корректно их обрабатывать.
     def __post_init__(self):
-        # Преобразуем компоненты из строки (если они есть) в список
-        if isinstance(self.components, str):
-            self.components = [comp.strip() for comp in self.components.split(',')]
-        elif isinstance(self.components, list):
+        # Преобразуем проектные роли из строки (если они есть) в список
+        if isinstance(self.project_role, str):
+            self.project_role = [role.strip() for role in self.project_role.split(',')]
+        elif isinstance(self.project_role, list):
             # Уже список, оставляем как есть
             pass
-        elif self.components is None:
-            self.components = []
+        elif self.project_role is None:
+            self.project_role = []
         else:
             # Проверяем на NaN (для pandas)
             try:
-                if pd.isna(self.components):
-                    self.components = []
+                if pd.isna(self.project_role):
+                    self.project_role = []
             except (ValueError, TypeError):
                 # Если pd.isna не может обработать, оставляем пустой список
-                self.components = []
+                self.project_role = []
 
     def get_completion_percentage(self) -> float:
         """Возвращает процент выполнения задачи."""
@@ -122,7 +122,7 @@ class JiraCsvLoader:
         'Status': 'status',
         'Created': 'created',
         'Updated': 'updated',
-        'Component/s': 'components',
+        'Custom field (Проектная роль)': 'project_role',
         'Due Date': 'due_date'
     }
 
@@ -159,7 +159,7 @@ class JiraCsvLoader:
             df = df[list(self.COLUMN_MAPPING.keys())]
             df = df.rename(columns=self.COLUMN_MAPPING)
 
-            df = df[df['components'] == 'Dev Python']
+            df = df[df['project_role'] == 'Dev Python']
             # Заменяем 'NaN' (стандартное значение для пустых ячеек в pandas) на None
             # Это важно для корректной работы с Optional типами в дата-классе
             df = df.where(pd.notnull(df), None)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         print(f"Описание: {first_task.description}")  # Будет полным
         print(f"Исполнитель: {first_task.assignee}")
         print(f"Статус: {first_task.status}")
-        print(f"Компоненты (как список): {first_task.components}")  # -> ['Backend', 'Auth']
+        print(f"Проектные роли (как список): {first_task.project_role}")  # -> ['Backend', 'Auth']
 
         print("\n--- Вторая загруженная задача---")
         second_task = all_tasks[1]

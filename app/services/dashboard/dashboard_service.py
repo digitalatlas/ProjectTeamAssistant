@@ -14,7 +14,7 @@ class DashboardRow:
     """Строка дашборда с данными о задаче."""
     estimate: str  # Смета (мок)
     epic: str  # Эпик (мок)
-    component: str  # Роль/компонент
+    project_role: str  # Проектная роль
     task_key: str  # Ключ задачи
     task_summary: str  # Название задачи
     status_details: str  # Подробности о статусе
@@ -137,7 +137,7 @@ class DashboardService:
         :param task: Задача Jira.
         :return: Строка дашборда.
         """
-        component = ", ".join(task.components) if task.components else "Не указан"
+        project_role = ", ".join(task.project_role) if task.project_role else "Не указана"
         
         completion = 0.0
         if task.completion_evaluation:
@@ -146,7 +146,7 @@ class DashboardService:
         return DashboardRow(
             estimate=self._get_estimate(task),
             epic=self._get_epic(task),
-            component=component,
+            project_role=project_role,
             task_key=task.issue_key,
             task_summary=task.summary,
             status_details=self._format_status_details(task),
@@ -167,7 +167,7 @@ class DashboardService:
     def get_hierarchical_data(self, tasks: List[JiraTask]) -> Dict[str, Any]:
         """
         Формирует иерархические данные для дашборда.
-        Группирует задачи по смете -> эпику -> компоненту.
+        Группирует задачи по смете -> эпику -> проектной роли.
         
         :param tasks: Список задач Jira.
         :return: Иерархическая структура данных.
@@ -183,10 +183,10 @@ class DashboardService:
             if row.epic not in hierarchy[row.estimate]:
                 hierarchy[row.estimate][row.epic] = {}
             
-            if row.component not in hierarchy[row.estimate][row.epic]:
-                hierarchy[row.estimate][row.epic][row.component] = []
+            if row.project_role not in hierarchy[row.estimate][row.epic]:
+                hierarchy[row.estimate][row.epic][row.project_role] = []
             
-            hierarchy[row.estimate][row.epic][row.component].append(row)
+            hierarchy[row.estimate][row.epic][row.project_role].append(row)
         
         return hierarchy
 
@@ -204,7 +204,7 @@ class DashboardService:
             table_data.append({
                 "Смета": row.estimate,
                 "Эпик": row.epic,
-                "Компонент": row.component,
+                "Проектная роль": row.project_role,
                 "Задача": f"{row.task_key}: {row.task_summary}",
                 "Статус": row.status_details,
                 "Выполнение (%)": row.completion_percentage,

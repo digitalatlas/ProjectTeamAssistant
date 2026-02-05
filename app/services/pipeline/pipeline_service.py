@@ -80,6 +80,27 @@ class PipelineService:
             self._llm_initialized = True
         return self.llm_service
     
+    def _generate_json_output_path(self, csv_path: str) -> str:
+        """
+        Генерирует путь для сохранения JSON файла на основе имени входного CSV.
+        
+        :param csv_path: Путь к входному CSV файлу.
+        :return: Путь к выходному JSON файлу.
+        """
+        # Получаем базовое имя файла без расширения
+        csv_basename = os.path.basename(csv_path)
+        csv_name = os.path.splitext(csv_basename)[0]
+        
+        # Получаем директорию для вывода из настроек
+        output_dir = str(settings.JSON_OUTPUT_FOLDER)
+        
+        # Создаём полный путь
+        json_filename = f"{csv_name}_results.json"
+        output_path = os.path.join(output_dir, json_filename)
+        
+        print(f"\n📄 Автогенерация пути JSON: {output_path}")
+        return output_path
+    
     def load_tasks_from_csv(self, csv_path: str) -> List[JiraTask]:
         """
         Загружает задачи из CSV файла.
@@ -125,7 +146,7 @@ class PipelineService:
                 updated=task_data.get('updated', ''),
                 description=task_data.get('description'),
                 assignee=task_data.get('assignee'),
-                components=task_data.get('components', []),
+                project_role=task_data.get('project_role', []),
                 due_date=task_data.get('due_date'),
                 decomposition=task_data.get('decomposition'),
                 implementation_plan=task_data.get('implementation_plan')
@@ -322,7 +343,7 @@ class PipelineService:
                 "summary": task.summary,
                 "status": task.status,
                 "assignee": task.assignee,
-                "components": task.components,
+                "project_role": task.project_role,
                 "decomposition": task.decomposition,
                 "implementation_plan": task.implementation_plan,
             }
@@ -387,7 +408,7 @@ class PipelineService:
                 "summary": task.summary,
                 "status": task.status,
                 "assignee": task.assignee,
-                "components": ", ".join(task.components) if task.components else "",
+                "project_role": ", ".join(task.project_role) if task.project_role else "",
             }
             
             # Декомпозиция
@@ -460,7 +481,7 @@ class PipelineService:
     def run_full_pipeline(
         self,
         csv_path: str,
-        output_csv_path: Optional[str] = None,
+        output_json_path: Optional[str] = None,
         rules_path: Optional[str] = None,
         prompt_path: Optional[str] = None,
         completion_batch_size: int = 5
@@ -469,7 +490,7 @@ class PipelineService:
         Выполняет полный пайплайн обработки задач.
         
         :param csv_path: Путь к CSV файлу с задачами.
-        :param output_csv_path: Путь для сохранения результатов в CSV (опционально).
+        :param output_json_path: Путь для сохранения результатов в JSON (опционально).
         :param rules_path: Путь к файлу с правилами.
         :param prompt_path: Путь к файлу с промптом декомпозиции.
         :param completion_batch_size: Размер батча для оценки выполнения.
@@ -483,6 +504,10 @@ class PipelineService:
         print("="*60)
         print(f"Время начала: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"CSV файл: {csv_path}")
+        
+        # Автогенерация пути для JSON, если не указан
+        if output_json_path is None:
+            output_json_path = self._generate_json_output_path(csv_path)
         
         try:
             # Этап 1: Загрузка данных
@@ -510,9 +535,9 @@ class PipelineService:
             result.dashboard_data = dashboard_data["table_data"]
             result.project_report = dashboard_data["project_report"]
             
-            # Сохранение результатов в CSV
-            if output_csv_path:
-                self.save_results_to_csv(tasks, output_csv_path)
+            # Сохранение результатов в JSON
+            if output_json_path:
+                self.save_results_to_json(tasks, output_json_path)
             
             result.tasks = tasks
             result.success = True

@@ -107,7 +107,7 @@ class PromptLoader:
                 f"Дата создания: {task.created}\n"
                 f"Дата обновления: {task.updated}\n"
                 f"Срок выполнения: {task.due_date if task.due_date else 'Не указан'}\n"
-                f"Компоненты: {', '.join(task.components) if task.components else 'Не указаны'}\n"
+                f"Проектные роли: {', '.join(task.project_role) if task.project_role else 'Не указаны'}\n"
                 f"Шаги декомпозиции: {decomposition_str}\n"
                 f"План реализации:\n{plan_str}"
             )

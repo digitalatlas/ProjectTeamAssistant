@@ -43,7 +43,7 @@ def load_tasks_from_json(json_path: str) -> List[JiraTask]:
             updated=task_data.get('updated', ''),
             description=task_data.get('description'),
             assignee=task_data.get('assignee'),
-            components=task_data.get('components', []),
+            project_role=task_data.get('project_role', []),
             due_date=task_data.get('due_date'),
             decomposition=task_data.get('decomposition'),
             implementation_plan=task_data.get('implementation_plan')
@@ -132,6 +132,12 @@ def calculate_primitive_stats_for_all(tasks: List[JiraTask]) -> List[Dict[str, A
     """
     Рассчитывает статистику для всех примитивов в отфильтрованных задачах.
     
+    Смысл метрик:
+    - completion: средняя выполненность именно этого примитива в задачах
+      (рассчитывается как средняя доля выполнения задачи, приходящаяся на этот примитив)
+    - incompleteness_contribution: вклад в незавершённость, суммируется в 100%
+      (это доля общей незавершённости работы над данным примитивом)
+    
     :param tasks: Список отфильтрованных задач.
     :return: Список словарей со статистикой по каждому примитиву.
     """
@@ -146,7 +152,7 @@ def calculate_primitive_stats_for_all(tasks: List[JiraTask]) -> List[Dict[str, A
     
     total_tasks = len(tasks)
     
-    # Создаем список для результатов
+    # Создаём список для результатов
     primitive_stats = []
     
     for primitive in all_primitives:
@@ -161,21 +167,54 @@ def calculate_primitive_stats_for_all(tasks: List[JiraTask]) -> List[Dict[str, A
         # Процент задач с примитивом
         primitive_percentage = (tasks_with_count / total_tasks) * 100 if total_tasks > 0 else 0
         
-        # Моковый вес примитива
-        mock_primitive_weight = 15.0
+        # Вес примитива в задаче рассчитывается как 1/количество_примитивов_в_задаче
+        # (равномерное распределение работы между примитивами)
+        # Выполненность примитива = средняя доля выполнения задачи, приходящаяся на этот примитив
+        primitive_completions = []
+        for task in tasks_with_primitive:
+            task_primitives = get_task_primitives(task)
+            primitives_count = len(task_primitives)
+            if primitives_count > 0:
+                # Доля выполнения задачи, приходящаяся на этот примитив
+                task_completion = task.get_completion_percentage()
+                primitive_share = task_completion / primitives_count
+                primitive_completions.append(primitive_share)
         
-        # Средний процент выполнения для задач с данным примитивом
-        total_completion = sum(task.get_completion_percentage() for task in tasks_with_primitive)
-        avg_completion = total_completion / tasks_with_count if tasks_with_count > 0 else 0
+        # Средняя выполненность именно этого примитива
+        avg_primitive_completion = sum(primitive_completions) / len(primitive_completions) if primitive_completions else 0
         
-        # Незавершённость
-        incompleteness = 100 - avg_completion
+        # Вклад в незавершённость: средняя доля незавершённости, приходящаяся на этот примитив
+        primitive_incompletenesses = []
+        for task in tasks_with_primitive:
+            task_primitives = get_task_primitives(task)
+            primitives_count = len(task_primitives)
+            if primitives_count > 0:
+                # Доля незавершённости задачи, приходящаяся на этот примитив
+                task_incompleteness = 100 - task.get_completion_percentage()
+                primitive_share_incompleteness = task_incompleteness / primitives_count
+                primitive_incompletenesses.append(primitive_share_incompleteness)
         
-        # Вклад в общую незавершённость
-        total_incompleteness_all = sum(100 - task.get_completion_percentage() for task in tasks)
+        avg_primitive_incompleteness = sum(primitive_incompletenesses) / len(primitive_incompletenesses) if primitive_incompletenesses else 0
         
-        if total_incompleteness_all > 0:
-            incompleteness_contribution = (incompleteness * tasks_with_count / total_incompleteness_all) * 100
+        # Собираем все средние незавершённости примитивов для нормализации
+        all_avg_incompletenesses = []
+        for p in all_primitives:
+            p_tasks = [t for t in tasks if p in get_task_primitives(t)]
+            if p_tasks:
+                p_incompletenesses = []
+                for t in p_tasks:
+                    t_primitives = get_task_primitives(t)
+                    if len(t_primitives) > 0:
+                        t_incompleteness = 100 - t.get_completion_percentage()
+                        p_incompletenesses.append(t_incompleteness / len(t_primitives))
+                if p_incompletenesses:
+                    all_avg_incompletenesses.append(sum(p_incompletenesses) / len(p_incompletenesses))
+        
+        total_avg_incompleteness = sum(all_avg_incompletenesses) if all_avg_incompletenesses else 1
+        
+        # Вклад в незавершённость (нормализуем, чтобы сумма была 100%)
+        if total_avg_incompleteness > 0:
+            incompleteness_contribution = (avg_primitive_incompleteness / total_avg_incompleteness) * 100
         else:
             incompleteness_contribution = 0
         
@@ -184,8 +223,8 @@ def calculate_primitive_stats_for_all(tasks: List[JiraTask]) -> List[Dict[str, A
             'primitive': primitive,
             'tasks_count': tasks_with_count,
             'tasks_percentage': round(primitive_percentage, 1),
-            'weight': mock_primitive_weight,
-            'completion': round(avg_completion, 1),
+            'weight': round(avg_primitive_completion, 1),
+            'completion': round(avg_primitive_completion, 1),
             'incompleteness_contribution': round(incompleteness_contribution, 1)
         })
     
@@ -331,15 +370,15 @@ def main():
         selected_epic = st.multiselect("Эпик:", epics, default=epics)
     
     with col3:
-        components = list(set(row["Компонент"] for row in table_data))
-        selected_component = st.multiselect("Компонент:", components, default=components)
+        project_roles = list(set(row["Проектная роль"] for row in table_data))
+        selected_project_role = st.multiselect("Проектная роль:", project_roles, default=project_roles)
     
     # Применяем базовые фильтры
     filtered_by_base = [
         row for row in table_data
         if row["Смета"] in selected_estimate
         and row["Эпик"] in selected_epic
-        and row["Компонент"] in selected_component
+        and row["Проектная роль"] in selected_project_role
     ]
     
     # Получаем ключи задач, прошедших базовую фильтрацию
@@ -390,7 +429,7 @@ def main():
             with col1:
                 st.markdown("**Смета:** " + row['Смета'])
                 st.markdown("**Эпик:** " + row['Эпик'])
-                st.markdown("**Компонент:** " + row['Компонент'])
+                st.markdown("**Проектная роль:** " + row['Проектная роль'])
             
             with col2:
                 st.markdown("**Статус:** " + row['Статус'])
@@ -412,7 +451,7 @@ def main():
             {
                 "Смета": row["Смета"],
                 "Эпик": row["Эпик"],
-                "Компонент": row["Компонент"],
+                "Проектная роль": row["Проектная роль"],
                 "Задача": row["Задача"],
                 "Статус": row["Статус"].split(" | ")[0],  # Только основной статус
                 "Выполнение (%)": row["Выполнение (%)"],

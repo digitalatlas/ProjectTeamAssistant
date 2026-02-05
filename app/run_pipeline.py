@@ -39,36 +39,15 @@ def get_default_csv_path():
     return None
 
 
-def get_default_output_csv_path(input_csv_path):
-    """Генерирует путь для сохранения CSV с результатами.
-    
-    Имя файла совпадает с именем входного файла.
-    """
-    if not input_csv_path:
-        return None
-    
-    # Получаем директорию входного файла
-    input_dir = os.path.dirname(input_csv_path)
-    input_basename = os.path.basename(input_csv_path)
-    
-    # Меняем расширение на _results.csv
-    if input_basename.endswith('.csv'):
-        output_filename = input_basename[:-4] + '_results.csv'
-    else:
-        output_filename = input_basename + '_results.csv'
-    
-    return os.path.join(input_dir, output_filename)
-
-
 def parse_arguments():
     """Парсинг аргументов командной строки."""
     parser = argparse.ArgumentParser(
-        description="Полный пайплайн обработки задач: загрузка CSV -> декомпозиция -> оценка -> CSV с результатами",
+        description="Полный пайплайн обработки задач: загрузка CSV -> декомпозиция -> оценка -> JSON с результатами",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Примеры использования:
 
-  # Пайплайн с CSV файлом (CSV сохраняется автоматически):
+  # Пайплайн с CSV файлом (JSON сохраняется автоматически в data/output):
   python app/run_pipeline.py
   python app/run_pipeline.py --csv data/jira_tasks/tasks.csv
   
@@ -89,10 +68,10 @@ def parse_arguments():
     )
     
     parser.add_argument(
-        "--csv-output",
+        "--json-output",
         type=str,
         default=None,
-        help="Путь для сохранения CSV с результатами (по умолчанию: совпадает с именем входного файла)"
+        help="Путь для сохранения JSON с результатами (по умолчанию: data/output/<имя_файла>_results.json)"
     )
     
     parser.add_argument(
@@ -174,20 +153,13 @@ def main():
         print(f"❌ Ошибка: CSV файл не найден: {csv_path}")
         sys.exit(1)
     
-    # Определяем путь для сохранения CSV с результатами
-    csv_output_path = args.csv_output
-    if csv_output_path is None:
-        csv_output_path = get_default_output_csv_path(csv_path)
-    
-    print(f"📊 CSV с результатами будет сохранён: {csv_output_path}")
-    
     # Создаём сервис пайплайна
     pipeline = PipelineService()
     
-    # Запускаем полный пайплайн
+    # Запускаем полный пайплайн (JSON сохраняется автоматически в data/output)
     result = pipeline.run_full_pipeline(
         csv_path=csv_path,
-        output_csv_path=csv_output_path,
+        output_json_path=args.json_output,
         rules_path=args.rules,
         prompt_path=args.prompt,
         completion_batch_size=args.batch_size

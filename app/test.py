@@ -153,7 +153,7 @@ def main():
             # Формируем запрос с учётом плана реализации
             plan_str = "\n".join(first_task.implementation_plan) if first_task.implementation_plan else ""
             query = (f"summary={first_task.summary}\ndescription={first_task.description}\n"
-                     f"components={first_task.components}\ndecomposition={first_task.decomposition}\n"
+                     f"project_role={first_task.project_role}\ndecomposition={first_task.decomposition}\n"
                      f"implementation_plan={plan_str}")
             
             print(f"Поиск для задачи: {first_task.issue_key}")

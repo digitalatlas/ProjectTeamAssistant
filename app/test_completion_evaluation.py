@@ -26,7 +26,7 @@ def create_sample_tasks() -> list[JiraTask]:
         updated="2024-01-20",
         description="Создать REST API для CRUD операций с пользователями",
         assignee="developer1",
-        components=["Backend", "API"],
+        project_role=["Backend", "API"],
         decomposition=["backend_api_endpoint", "backend_business_logic", "backend_validation"],
         implementation_plan=[
             "Создать модель User в models/user.py",
@@ -106,7 +106,7 @@ def create_sample_tasks() -> list[JiraTask]:
         updated="2024-01-22",
         description="Реализовать JWT-авторизацию для API",
         assignee="developer2",
-        components=["Backend", "Auth"],
+        project_role=["Backend", "Auth"],
         decomposition=["backend_auth", "backend_validation"],
         implementation_plan=[
             "Настроить библиотеку PyJWT",
@@ -176,7 +176,7 @@ def create_sample_tasks() -> list[JiraTask]:
         updated="2024-01-18",
         description="Разработать React-компоненты для страницы настроек",
         assignee="developer3",
-        components=["Frontend", "UI"],
+        project_role=["Frontend", "UI"],
         decomposition=["frontend_ui_component_new", "frontend_state_management"],
         implementation_plan=[
             "Создать компонент ProfileSettings",
