@@ -11,79 +11,16 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 import sys
 import os
-import random
 import json
+import glob
+import yaml
 
 # Добавляем корневую директорию проекта в путь
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.dashboard import DashboardService
-from app.utils.data.jira_csv_loader import JiraCsvLoader, JiraTask, CompletionEvaluation, StepEvaluation
-
-
-def create_mock_completion_evaluation(task: JiraTask) -> CompletionEvaluation:
-    """
-    Создает моковую оценку выполнения для задачи (для тестирования).
-    В реальности данные будут приходить из LLM сервиса.
-    """
-    # Генерируем случайные шаги
-    num_steps = random.randint(3, 7)
-    steps = []
-    
-    step_descriptions = [
-        "Анализ требований",
-        "Проектирование архитектуры",
-        "Реализация основной логики",
-        "Написание unit-тестов",
-        "Интеграционное тестирование",
-        "Code review",
-        "Документирование",
-        "Деплой на staging",
-        "Финальное тестирование"
-    ]
-    
-    for i in range(1, num_steps + 1):
-        completion = random.randint(0, 100)
-        is_completed = completion >= 100
-        
-        step = StepEvaluation(
-            step_number=i,
-            step_description=step_descriptions[i % len(step_descriptions)],
-            is_completed=is_completed,
-            completion_percentage=float(completion),
-            weight=round(100 / num_steps, 1),
-            reasoning="Оценка на основе анализа коммитов и статуса задачи"
-        )
-        steps.append(step)
-    
-    # Рассчитываем общий процент
-    overall = sum(s.weighted_completion() for s in steps)
-    
-    confidence_options = ["high", "medium", "low"]
-    
-    status_factor_text = "Статус '" + task.status + "' учтен в оценке"
-    
-    return CompletionEvaluation(
-        overall_completion_percentage=round(overall, 1),
-        status_factor=status_factor_text,
-        steps_evaluation=steps,
-        confidence=random.choice(confidence_options),
-        notes="Автоматически сгенерированная оценка для тестирования"
-    )
-
-
-def load_tasks_with_mock_data(csv_path: str) -> List[JiraTask]:
-    """
-    Загружает задачи из CSV и добавляет моковые данные оценки.
-    """
-    loader = JiraCsvLoader(csv_path)
-    tasks = loader.load_tasks()
-    
-    # Добавляем моковые оценки выполнения
-    for task in tasks:
-        task.completion_evaluation = create_mock_completion_evaluation(task)
-    
-    return tasks
+from app.config.settings import settings
+from app.utils.data.jira_csv_loader import JiraTask, CompletionEvaluation, StepEvaluation
 
 
 def load_tasks_from_json(json_path: str) -> List[JiraTask]:
@@ -140,73 +77,119 @@ def load_tasks_from_json(json_path: str) -> List[JiraTask]:
     return tasks
 
 
-def create_demo_tasks() -> List[JiraTask]:
+def get_json_files_from_folder(folder_path: str) -> List[str]:
     """
-    Создает демонстрационные задачи для тестирования без CSV файла.
+    Возвращает список JSON файлов из указанной папки.
     """
-    demo_tasks = [
-        JiraTask(
-            issue_key="PROJ-101",
-            issue_id=101,
-            summary="Реализация API авторизации",
-            status="In Progress",
-            created="2026-01-15",
-            updated="2026-02-01",
-            description="Разработка REST API для авторизации пользователей",
-            assignee="Иванов И.И.",
-            components=["Dev Python", "Backend"]
-        ),
-        JiraTask(
-            issue_key="PROJ-102",
-            issue_id=102,
-            summary="Интеграция с платежной системой",
-            status="To Do",
-            created="2026-01-20",
-            updated="2026-01-25",
-            description="Подключение к API платежного шлюза",
-            assignee="Петров П.П.",
-            components=["Dev Python"]
-        ),
-        JiraTask(
-            issue_key="PROJ-103",
-            issue_id=103,
-            summary="Оптимизация запросов к БД",
-            status="Done",
-            created="2026-01-10",
-            updated="2026-02-02",
-            description="Улучшение производительности SQL запросов",
-            assignee="Сидоров С.С.",
-            components=["Dev Python", "Database"]
-        ),
-        JiraTask(
-            issue_key="PROJ-104",
-            issue_id=104,
-            summary="Разработка модуля отчетности",
-            status="In Progress",
-            created="2026-01-18",
-            updated="2026-02-01",
-            description="Создание системы генерации отчетов",
-            assignee="Козлов К.К.",
-            components=["Dev Python", "Reports"]
-        ),
-        JiraTask(
-            issue_key="PROJ-105",
-            issue_id=105,
-            summary="Миграция на новую версию фреймворка",
-            status="In Review",
-            created="2026-01-22",
-            updated="2026-02-02",
-            description="Обновление Django до версии 5.0",
-            assignee="Новиков Н.Н.",
-            components=["Dev Python"]
-        ),
-    ]
+    if not os.path.exists(folder_path):
+        return []
     
-    # Добавляем моковые оценки
-    for task in demo_tasks:
-        task.completion_evaluation = create_mock_completion_evaluation(task)
+    json_files = glob.glob(os.path.join(folder_path, "*.json"))
+    return sorted(json_files)
+
+
+def load_primitives_from_yaml(yaml_path: str) -> List[Dict[str, str]]:
+    """
+    Загружает примитивы из YAML файла декомпозиции задач.
     
-    return demo_tasks
+    :param yaml_path: Путь к YAML файлу с декомпозицией.
+    :return: Список словарей с id и description примитивов.
+    """
+    if not os.path.exists(yaml_path):
+        return []
+    
+    try:
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            
+        if data and 'decomposition_rules' in data:
+            primitives = []
+            for rule in data['decomposition_rules']:
+                primitives.append({
+                    'id': rule.get('id', ''),
+                    'description': rule.get('description', '')
+                })
+            return primitives
+        return []
+    except Exception as e:
+        print(f"Ошибка загрузки YAML: {e}")
+        return []
+
+
+def get_task_primitives(task: JiraTask) -> List[str]:
+    """
+    Возвращает список примитивов задачи из декомпозиции.
+    
+    :param task: Задача Jira.
+    :return: Список ID примитивов.
+    """
+    if task.decomposition and isinstance(task.decomposition, list):
+        return [str(p) for p in task.decomposition]
+    return []
+
+
+def calculate_primitive_stats_for_all(tasks: List[JiraTask]) -> List[Dict[str, Any]]:
+    """
+    Рассчитывает статистику для всех примитивов в отфильтрованных задачах.
+    
+    :param tasks: Список отфильтрованных задач.
+    :return: Список словарей со статистикой по каждому примитиву.
+    """
+    if not tasks:
+        return []
+    
+    # Собираем все уникальные примитивы из задач
+    all_primitives = set()
+    for task in tasks:
+        task_primitives = get_task_primitives(task)
+        all_primitives.update(task_primitives)
+    
+    total_tasks = len(tasks)
+    
+    # Создаем список для результатов
+    primitive_stats = []
+    
+    for primitive in all_primitives:
+        # Задачи, содержащие данный примитив
+        tasks_with_primitive = [
+            task for task in tasks
+            if primitive in get_task_primitives(task)
+        ]
+        
+        tasks_with_count = len(tasks_with_primitive)
+        
+        # Процент задач с примитивом
+        primitive_percentage = (tasks_with_count / total_tasks) * 100 if total_tasks > 0 else 0
+        
+        # Моковый вес примитива
+        mock_primitive_weight = 15.0
+        
+        # Средний процент выполнения для задач с данным примитивом
+        total_completion = sum(task.get_completion_percentage() for task in tasks_with_primitive)
+        avg_completion = total_completion / tasks_with_count if tasks_with_count > 0 else 0
+        
+        # Незавершённость
+        incompleteness = 100 - avg_completion
+        
+        # Вклад в общую незавершённость
+        total_incompleteness_all = sum(100 - task.get_completion_percentage() for task in tasks)
+        
+        if total_incompleteness_all > 0:
+            incompleteness_contribution = (incompleteness * tasks_with_count / total_incompleteness_all) * 100
+        else:
+            incompleteness_contribution = 0
+        
+        # Добавляем статистику для данного примитива
+        primitive_stats.append({
+            'primitive': primitive,
+            'tasks_count': tasks_with_count,
+            'tasks_percentage': round(primitive_percentage, 1),
+            'weight': mock_primitive_weight,
+            'completion': round(avg_completion, 1),
+            'incompleteness_contribution': round(incompleteness_contribution, 1)
+        })
+    
+    return primitive_stats
 
 
 def render_step_details(steps: List[Dict[str, Any]]) -> None:
@@ -254,43 +237,32 @@ def main():
     st.title("📊 Дашборд выполнения задач")
     st.markdown("---")
     
-    # Проверяем, передан ли путь к JSON через переменную окружения
-    env_json_path = os.environ.get("PIPELINE_JSON_PATH")
+    # Получаем папку с JSON файлами из настроек
+    json_folder = settings.DASHBOARD_JSON_FOLDER
     
-    # Боковая панель с настройками
+    # Получаем список JSON файлов
+    json_files = get_json_files_from_folder(json_folder)
+    
+    if not json_files:
+        st.warning(f"📂 Папка '{json_folder}' не найдена или пуста")
+        st.info("Создайте JSON файлы в формате результатов пайплайна")
+        st.stop()
+    
+    # Получаем относительные пути для отображения
+    file_options = [os.path.relpath(f, json_folder) for f in json_files]
+    
+    # Боковая панель с выбором файла
     with st.sidebar:
-        st.header("⚙️ Настройки")
         
-        # Определяем доступные источники данных
-        data_sources = ["Демо-данные", "CSV файл", "JSON файл (результат пайплайна)"]
-        
-        # Если передан путь через переменную окружения, выбираем JSON по умолчанию
-        default_index = 2 if env_json_path else 0
-        
-        data_source = st.radio(
-            "Источник данных:",
-            data_sources,
-            index=default_index
+        # Радио баттон для выбора файла
+        selected_file = st.radio(
+            "Выберите файл:",
+            options=file_options,
+            index=len(file_options) - 1 if file_options else 0  # По умолчанию последний файл
         )
         
-        csv_path = None
-        json_path = None
-        
-        if data_source == "CSV файл":
-            csv_path = st.text_input(
-                "Путь к CSV файлу:",
-                value="data/jira_tasks/tasks.csv"
-            )
-        elif data_source == "JSON файл (результат пайплайна)":
-            default_json = env_json_path or "data/output/pipeline_results.json"
-            json_path = st.text_input(
-                "Путь к JSON файлу:",
-                value=default_json
-            )
-            if json_path and os.path.exists(json_path):
-                st.success("✅ JSON файл найден")
-            elif json_path:
-                st.warning("⚠️ Файл не найден")
+        # Полный путь к выбранному файлу
+        selected_json_path = os.path.join(json_folder, selected_file)
         
         st.markdown("---")
         st.markdown("""
@@ -298,36 +270,21 @@ def main():
         - 🟢 **Выполнено** (>=75%)
         - 🟡 **В процессе** (50-74%)
         - 🔴 **Требует внимания** (<50%)
-        
-        ### ℹ️ Информация
-        При загрузке из **JSON** используются
-        реальные данные из пайплайна.
-        
-        При загрузке из **CSV** или **Демо**
-        используются моковые оценки.
         """)
     
-    # Загрузка данных
+    # Загрузка данных из выбранного JSON файла
     try:
-        if data_source == "JSON файл (результат пайплайна)" and json_path:
-            tasks = load_tasks_from_json(json_path)
-            st.sidebar.info(f"📊 Загружено {len(tasks)} задач из JSON")
-        elif data_source == "CSV файл" and csv_path:
-            tasks = load_tasks_with_mock_data(csv_path)
-        else:
-            tasks = create_demo_tasks()
-    except FileNotFoundError as e:
-        st.error(f"Файл не найден: {e}")
-        tasks = create_demo_tasks()
-        st.info("Используются демо-данные")
+        tasks = load_tasks_from_json(selected_json_path)
+        st.sidebar.success(f"✅ Загружено {len(tasks)} задач")
+    except FileNotFoundError:
+        st.error(f"Файл не найден: {selected_json_path}")
+        st.stop()
     except json.JSONDecodeError as e:
         st.error(f"Ошибка парсинга JSON: {e}")
-        tasks = create_demo_tasks()
-        st.info("Используются демо-данные")
+        st.stop()
     except Exception as e:
         st.error("Ошибка загрузки данных: " + str(e))
-        tasks = create_demo_tasks()
-        st.info("Используются демо-данные")
+        st.stop()
     
     if not tasks:
         st.warning("Нет задач для отображения")
@@ -377,13 +334,28 @@ def main():
         components = list(set(row["Компонент"] for row in table_data))
         selected_component = st.multiselect("Компонент:", components, default=components)
     
-    # Фильтруем данные
-    filtered_data = [
+    # Применяем базовые фильтры
+    filtered_by_base = [
         row for row in table_data
         if row["Смета"] in selected_estimate
         and row["Эпик"] in selected_epic
         and row["Компонент"] in selected_component
     ]
+    
+    # Получаем ключи задач, прошедших базовую фильтрацию
+    filtered_task_keys = set(row["_task_key"] for row in filtered_by_base)
+    
+    # Получаем задачи, прошедшие базовую фильтрацию
+    base_filtered_tasks = [task for task in tasks if task.issue_key in filtered_task_keys]
+    
+    # Получаем уникальные примитивы из отфильтрованных задач
+    available_primitives = set()
+    for task in base_filtered_tasks:
+        task_primitives = get_task_primitives(task)
+        available_primitives.update(task_primitives)
+    
+    # Применяем фильтр по примитивам
+    filtered_data = filtered_by_base
     
     st.markdown("---")
     
@@ -467,37 +439,35 @@ def main():
         
         st.dataframe(styled_df, use_container_width=True, height=400)
     
-    # Экспорт данных
+    # Таблица статистики по примитивам
     st.markdown("---")
-    st.subheader("📥 Экспорт данных")
+    st.subheader("📊 Статистика по примитивам")
     
-    col1, col2 = st.columns(2)
+    # Рассчитываем статистику по всем примитивам
+    primitive_stats = calculate_primitive_stats_for_all(base_filtered_tasks)
     
-    with col1:
-        # Экспорт в CSV
-        df_export = pd.DataFrame([
-            {
-                "Смета": row["Смета"],
-                "Эпик": row["Эпик"],
-                "Компонент": row["Компонент"],
-                "Задача": row["Задача"],
-                "Статус": row["Статус"],
-                "Выполнение (%)": row["Выполнение (%)"],
-                "Ремейнинг": row["Ремейнинг"]
-            }
-            for row in filtered_data
-        ])
+    if primitive_stats:
+        # Создаем DataFrame для отображения
+        df_primitives = pd.DataFrame(primitive_stats)
         
-        csv_data = df_export.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button(
-            label="📄 Скачать CSV",
-            data=csv_data,
-            file_name="dashboard_export.csv",
-            mime="text/csv"
-        )
-    
-    with col2:
-        st.info("Для экспорта в другие форматы используйте сводную таблицу выше")
+        # Переименовываем столбцы для лучшего отображения
+        df_primitives.columns = [
+            'Примитив',
+            'Кол-во задач',
+            'Доля задач (%)',
+            'Вес',
+            'Выполненность',
+            'Вклад в незавершенность (%)'
+        ]
+        
+        # Сортируем по количеству задач (по убыванию)
+        df_primitives = df_primitives.sort_values('Кол-во задач', ascending=False)
+        
+        # Отображаем таблицу
+        st.dataframe(df_primitives, use_container_width=True)
+    else:
+        st.info("Нет данных о примитивах в отфильтрованных задачах")
+
 
 
 if __name__ == "__main__":

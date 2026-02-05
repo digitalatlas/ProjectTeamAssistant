@@ -7,6 +7,7 @@
 import os
 import json
 import subprocess
+import pandas as pd
 import webbrowser
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
@@ -312,7 +313,7 @@ class PipelineService:
         :param output_path: Путь для сохранения файла.
         :return: Путь к сохранённому файлу.
         """
-        print(f"\nСохранение результатов в: {output_path}")
+        print(f"\nСохранение результатов в JSON: {output_path}")
         
         results = []
         for task in tasks:
@@ -359,6 +360,77 @@ class PipelineService:
         print(f"Результаты сохранены: {len(results)} задач")
         return output_path
     
+    def save_results_to_csv(
+        self,
+        tasks: List[JiraTask],
+        output_path: str
+    ) -> str:
+        """
+        Сохраняет результаты пайплайна в CSV файл.
+        
+        :param tasks: Список обработанных задач.
+        :param output_path: Путь для сохранения файла.
+        :return: Путь к сохранённому файлу.
+        """
+        print(f"\nСохранение результатов в CSV: {output_path}")
+        
+        # Создаём директорию, если не существует
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # Формируем данные для DataFrame
+        rows = []
+        for task in tasks:
+            row = {
+                "issue_key": task.issue_key,
+                "summary": task.summary,
+                "status": task.status,
+                "assignee": task.assignee,
+                "components": ", ".join(task.components) if task.components else "",
+            }
+            
+            # Декомпозиция
+            if task.decomposition:
+                row["decomposition"] = "; ".join(task.decomposition)
+            else:
+                row["decomposition"] = ""
+            
+            # План реализации
+            if task.implementation_plan:
+                row["implementation_plan"] = "; ".join(task.implementation_plan)
+            else:
+                row["implementation_plan"] = ""
+            
+            # Оценка выполнения
+            if task.completion_evaluation:
+                eval_data = task.completion_evaluation
+                row["completion_percentage"] = eval_data.overall_completion_percentage
+                row["status_factor"] = eval_data.status_factor
+                row["confidence"] = eval_data.confidence
+                row["notes"] = eval_data.notes or ""
+                
+                # Шаги выполнения
+                for step in eval_data.steps_evaluation:
+                    row[f"step_{step.step_number}_description"] = step.step_description
+                    row[f"step_{step.step_number}_completed"] = "Да" if step.is_completed else "Нет"
+                    row[f"step_{step.step_number}_percentage"] = step.completion_percentage
+                    row[f"step_{step.step_number}_weight"] = step.weight
+                    row[f"step_{step.step_number}_reasoning"] = step.reasoning
+            else:
+                row["completion_percentage"] = 0
+                row["status_factor"] = ""
+                row["confidence"] = ""
+                row["notes"] = ""
+            
+            rows.append(row)
+        
+        df = pd.DataFrame(rows)
+        df.to_csv(output_path, index=False, encoding='utf-8')
+        
+        print(f"Результаты сохранены: {len(rows)} задач")
+        return output_path
+    
     def launch_dashboard(self, port: int = 8501) -> None:
         """
         Запускает интерактивный дашборд Streamlit.
@@ -388,9 +460,7 @@ class PipelineService:
     def run_full_pipeline(
         self,
         csv_path: str,
-        output_json_path: Optional[str] = None,
-        launch_dashboard: bool = False,
-        dashboard_port: int = 8501,
+        output_csv_path: Optional[str] = None,
         rules_path: Optional[str] = None,
         prompt_path: Optional[str] = None,
         completion_batch_size: int = 5
@@ -399,9 +469,7 @@ class PipelineService:
         Выполняет полный пайплайн обработки задач.
         
         :param csv_path: Путь к CSV файлу с задачами.
-        :param output_json_path: Путь для сохранения результатов в JSON (опционально).
-        :param launch_dashboard: Запустить ли дашборд после обработки.
-        :param dashboard_port: Порт для дашборда.
+        :param output_csv_path: Путь для сохранения результатов в CSV (опционально).
         :param rules_path: Путь к файлу с правилами.
         :param prompt_path: Путь к файлу с промптом декомпозиции.
         :param completion_batch_size: Размер батча для оценки выполнения.
@@ -442,9 +510,9 @@ class PipelineService:
             result.dashboard_data = dashboard_data["table_data"]
             result.project_report = dashboard_data["project_report"]
             
-            # Сохранение результатов
-            if output_json_path:
-                self.save_results_to_json(tasks, output_json_path)
+            # Сохранение результатов в CSV
+            if output_csv_path:
+                self.save_results_to_csv(tasks, output_csv_path)
             
             result.tasks = tasks
             result.success = True
@@ -454,10 +522,6 @@ class PipelineService:
             result.execution_time_seconds = (end_time - start_time).total_seconds()
             
             self._print_summary(result)
-            
-            # Этап 6: Запуск дашборда (опционально)
-            if launch_dashboard:
-                self.launch_dashboard(dashboard_port)
             
         except FileNotFoundError as e:
             result.errors.append(f"Файл не найден: {e}")

@@ -39,5 +39,11 @@ class Settings:
         self.RULES_FILEPATH = project_root / os.getenv("RULES_FILEPATH")
         self.DECOMPOSITION_PROMPT_FILEPATH= project_root / os.getenv("DECOMPOSITION_PROMPT_FILEPATH")
 
+        # --- Dashboard Settings ---
+        self.DASHBOARD_JSON_FOLDER: str = os.getenv("DASHBOARD_JSON_FOLDER", "data/output")
+
+        # --- Pipeline Settings ---
+        self.CSV_DEFAULT_FOLDER: str = os.getenv("CSV_DEFAULT_FOLDER", "data/jira_tasks/")
+
 
 settings = Settings()

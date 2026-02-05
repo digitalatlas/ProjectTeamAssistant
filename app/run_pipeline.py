@@ -3,65 +3,96 @@
 Скрипт для запуска полного пайплайна обработки задач.
 
 Использование:
-    # Полный пайплайн с CSV
-    python app/run_pipeline.py --csv data/jira_tasks/tasks.csv
-    python app/run_pipeline.py --csv data/jira_tasks/tasks.csv --output data/output/results.json
+    # С указанием входного CSV
+    python app/run_pipeline.py --csv data/jira_tasks/my_tasks.csv
+    
+    # С дашбордом после пайплайна
     python app/run_pipeline.py --csv data/jira_tasks/tasks.csv --dashboard
     
-    # Запуск дашборда из сохранённых JSON результатов (без LLM обработки)
-    python app/run_pipeline.py --json data/output/results.json --dashboard
+Для запуска дашборда используйте:
+    streamlit run app/dashboard_app.py
 """
 
 import argparse
 import sys
 import os
+import subprocess
 
 # Добавляем корневую директорию проекта в путь
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.config.settings import settings
 from app.services.pipeline import PipelineService
+
+
+def get_default_csv_path():
+    """Получает путь к CSV файлу по умолчанию из настроек."""
+    default_folder = getattr(settings, 'CSV_DEFAULT_FOLDER', 'data/jira_tasks/')
+    
+    # Ищем CSV файлы в папке по умолчанию
+    if os.path.exists(default_folder):
+        csv_files = [f for f in os.listdir(default_folder) if f.endswith('.csv')]
+        if csv_files:
+            # Возвращаем последний CSV файл (часто последний по дате)
+            return os.path.join(default_folder, sorted(csv_files)[-1])
+    
+    return None
+
+
+def get_default_output_csv_path(input_csv_path):
+    """Генерирует путь для сохранения CSV с результатами.
+    
+    Имя файла совпадает с именем входного файла.
+    """
+    if not input_csv_path:
+        return None
+    
+    # Получаем директорию входного файла
+    input_dir = os.path.dirname(input_csv_path)
+    input_basename = os.path.basename(input_csv_path)
+    
+    # Меняем расширение на _results.csv
+    if input_basename.endswith('.csv'):
+        output_filename = input_basename[:-4] + '_results.csv'
+    else:
+        output_filename = input_basename + '_results.csv'
+    
+    return os.path.join(input_dir, output_filename)
 
 
 def parse_arguments():
     """Парсинг аргументов командной строки."""
     parser = argparse.ArgumentParser(
-        description="Полный пайплайн обработки задач: загрузка CSV -> декомпозиция -> оценка -> дашборд",
+        description="Полный пайплайн обработки задач: загрузка CSV -> декомпозиция -> оценка -> CSV с результатами",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Примеры использования:
 
-  # Полный пайплайн с CSV файлом:
+  # Пайплайн с CSV файлом (CSV сохраняется автоматически):
+  python app/run_pipeline.py
   python app/run_pipeline.py --csv data/jira_tasks/tasks.csv
-  python app/run_pipeline.py --csv data/jira_tasks/tasks.csv --output results.json
+  
+  # Пайплайн с дашбордом:
   python app/run_pipeline.py --csv data/jira_tasks/tasks.csv --dashboard
-  python app/run_pipeline.py --csv data/jira_tasks/tasks.csv --dashboard --port 8502
+  python app/run_pipeline.py --csv data/jira_tasks/tasks.csv --dashboard --port 8501
 
-  # Запуск дашборда из сохранённых результатов (без LLM):
-  python app/run_pipeline.py --json data/output/results.json --dashboard
-  python app/run_pipeline.py --json data/output/results.json --dashboard --port 8502
+  # Запуск单独的 дашборда:
+  streamlit run app/dashboard_app.py
         """
     )
     
-    # Группа взаимоисключающих источников данных
-    source_group = parser.add_mutually_exclusive_group(required=True)
-    
-    source_group.add_argument(
+    parser.add_argument(
         "--csv", "-c",
         type=str,
-        help="Путь к CSV файлу с задачами из Jira (запускает полный пайплайн с LLM)"
-    )
-    
-    source_group.add_argument(
-        "--json", "-j",
-        type=str,
-        help="Путь к JSON файлу с результатами пайплайна (только для дашборда, без LLM)"
+        default=None,
+        help="Путь к CSV файлу с задачами из Jira (по умолчанию: первый CSV в папке из CSV_DEFAULT_FOLDER)"
     )
     
     parser.add_argument(
-        "--output", "-o",
+        "--csv-output",
         type=str,
         default=None,
-        help="Путь для сохранения результатов в JSON (только для --csv режима)"
+        help="Путь для сохранения CSV с результатами (по умолчанию: совпадает с именем входного файла)"
     )
     
     parser.add_argument(
@@ -101,58 +132,81 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def run_dashboard(port: int):
+    """Запускает дашборд через streamlit."""
+    dashboard_script = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'app',
+        'dashboard_app.py'
+    )
+    
+    cmd = [sys.executable, '-m', 'streamlit', 'run', dashboard_script, '--', '--port', str(port)]
+    
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Ошибка запуска дашборда: {e}")
+        return False
+    except FileNotFoundError:
+        print("❌ Ошибка: streamlit не найден. Установите его: pip install streamlit")
+        return False
+
+
 def main():
     """Главная функция запуска пайплайна."""
     args = parse_arguments()
     
+    # Определяем путь к CSV файлу
+    csv_path = args.csv
+    if csv_path is None:
+        csv_path = get_default_csv_path()
+        if csv_path is None:
+            print("❌ Ошибка: CSV файл не найден.")
+            print("   Укажите путь к CSV файлу: --csv <путь>")
+            print(f"   Или поместите CSV файл в папку: {getattr(settings, 'CSV_DEFAULT_FOLDER', 'data/jira_tasks/')}")
+            sys.exit(1)
+        else:
+            print(f"📄 Используется CSV файл по умолчанию: {csv_path}")
+    
+    # Проверяем существование CSV файла
+    if not os.path.exists(csv_path):
+        print(f"❌ Ошибка: CSV файл не найден: {csv_path}")
+        sys.exit(1)
+    
+    # Определяем путь для сохранения CSV с результатами
+    csv_output_path = args.csv_output
+    if csv_output_path is None:
+        csv_output_path = get_default_output_csv_path(csv_path)
+    
+    print(f"📊 CSV с результатами будет сохранён: {csv_output_path}")
+    
     # Создаём сервис пайплайна
     pipeline = PipelineService()
     
-    # Режим JSON - только дашборд из сохранённых результатов
-    if args.json:
-        # Проверяем существование JSON файла
-        if not os.path.exists(args.json):
-            print(f"❌ Ошибка: JSON файл не найден: {args.json}")
-            sys.exit(1)
-        
-        if not args.dashboard:
-            print("⚠️  Режим --json требует флаг --dashboard для запуска дашборда")
-            print("   Используйте: python app/run_pipeline.py --json <путь> --dashboard")
-            sys.exit(1)
-        
-        # Запускаем дашборд из JSON
-        result = pipeline.run_dashboard_from_json(
-            json_path=args.json,
-            port=args.port
-        )
+    # Запускаем полный пайплайн
+    result = pipeline.run_full_pipeline(
+        csv_path=csv_path,
+        output_csv_path=csv_output_path,
+        rules_path=args.rules,
+        prompt_path=args.prompt,
+        completion_batch_size=args.batch_size
+    )
     
-    # Режим CSV - полный пайплайн
-    else:
-        # Проверяем существование CSV файла
-        if not os.path.exists(args.csv):
-            print(f"❌ Ошибка: CSV файл не найден: {args.csv}")
-            sys.exit(1)
-        
-        # Запускаем полный пайплайн
-        result = pipeline.run_full_pipeline(
-            csv_path=args.csv,
-            output_json_path=args.output,
-            launch_dashboard=args.dashboard,
-            dashboard_port=args.port,
-            rules_path=args.rules,
-            prompt_path=args.prompt,
-            completion_batch_size=args.batch_size
-        )
-    
-    # Возвращаем код выхода
-    if result.success:
-        print("\n✅ Операция успешно завершена!")
-        sys.exit(0)
-    else:
-        print("\n❌ Операция завершилась с ошибками")
+    if not result.success:
+        print("\n❌ Ошибки пайплайна:")
         for error in result.errors:
             print(f"   • {error}")
         sys.exit(1)
+    
+    print("\n✅ Пайплайн успешно завершён!")
+    
+    # Запускаем дашборд, если требуется
+    if args.dashboard:
+        print(f"\n🚀 Запуск дашборда на порту {args.port}...")
+        run_dashboard(args.port)
+    
+    sys.exit(0)
 
 
 if __name__ == "__main__":
