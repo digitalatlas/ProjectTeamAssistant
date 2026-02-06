@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  pipeline:
+    build: .
+    container_name: project_pipeline
+    volumes:
+      - ./:/app
+    ports:
+      - "8501:8501"
+    command: ["python", "app/run_pipeline.py", "--dashboard", "--port", "8501"]
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
