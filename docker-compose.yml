@@ -6,6 +6,8 @@ services:
     container_name: project_pipeline
     volumes:
       - ./:/app
+      - chroma_db:/app/chroma_db
+      - repos:/app/data/repos
     ports:
       - "8501:8501"
     command: ["python", "app/run_pipeline.py", "--dashboard", "--port", "8501"]
@@ -13,3 +15,7 @@ services:
       - PYTHONUNBUFFERED=1
     stdin_open: true
     tty: true
+
+volumes:
+  chroma_db:
+  repos:
