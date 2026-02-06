@@ -177,30 +177,3 @@ class JiraCsvLoader:
             print(f"Произошла ошибка при чтении или обработке файла: {e}")
             return []
 
-
-# --- Пример использования ---
-if __name__ == "__main__":
-    # 1. Создаем экземпляр загрузчика
-    loader = JiraCsvLoader(csv_filepath="../../../data/jira_tasks/tasks.csv")
-
-    # 2. Загружаем задачи
-    all_tasks = loader.load_tasks()
-
-    # 3. Работаем с результатом
-    if all_tasks:
-        print("\n--- Первая загруженная задача ---")
-        first_task = all_tasks[0]
-
-        # Теперь вы можете легко обращаться к данным через атрибуты объекта
-        print(f"Ключ: {first_task.issue_key}")
-        print(f"Заголовок: {first_task.summary}")
-        print(f"Описание: {first_task.description}")  # Будет полным
-        print(f"Исполнитель: {first_task.assignee}")
-        print(f"Статус: {first_task.status}")
-        print(f"Проектные роли (как список): {first_task.project_role}")  # -> ['Backend', 'Auth']
-
-        print("\n--- Вторая загруженная задача---")
-        second_task = all_tasks[1]
-        print(f"Ключ: {second_task.issue_key}")
-        print(f"Описание: {second_task.description}")  # Будет None
-        print(f"Исполнитель: {second_task.assignee}")  # Будет None
