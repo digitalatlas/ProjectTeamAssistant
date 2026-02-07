@@ -106,7 +106,7 @@ class DashboardService:
             
             # Добавляем заметки, если есть
             if eval_data.notes:
-                details.append(f"Примечание: {eval_data.notes[:50]}...")
+                details.append(f"Примечание: {eval_data.notes}")
 
         return " | ".join(details)
 
@@ -201,6 +201,10 @@ class DashboardService:
         
         table_data = []
         for row in rows:
+            # Получаем заметки из оригинальной задачи
+            task = next((t for t in tasks if t.issue_key == row.task_key), None)
+            notes = task.completion_evaluation.notes if task and task.completion_evaluation else None
+            
             table_data.append({
                 "Смета": row.estimate,
                 "Эпик": row.epic,
@@ -210,7 +214,8 @@ class DashboardService:
                 "Выполнение (%)": row.completion_percentage,
                 "Ремейнинг": row.remaining,
                 "_steps": row.steps,  # Скрытое поле для раскрытия
-                "_task_key": row.task_key  # Для идентификации
+                "_task_key": row.task_key,  # Для идентификации
+                "_notes": notes  # Полное примечание
             })
         
         return table_data

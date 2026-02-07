@@ -20,3 +20,4 @@ langchain_litellm~=0.4.0
 langchain_chroma~=1.1.0
 langchain_huggingface~=1.2.0
 sentence-transformers~=5.2.2
+dotenv~=0.9.9

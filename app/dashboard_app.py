@@ -6,11 +6,13 @@
 Запуск: streamlit run app/dashboard_app.py
 """
 
+import os
+os.environ.setdefault("STREAMLIT_SERVER_FILEWATCHERTYPE", "none")
+
 import streamlit as st
 import pandas as pd
 from typing import List, Dict, Any, Optional
 import sys
-import os
 import json
 import glob
 import yaml
@@ -434,9 +436,14 @@ def main():
             with col2:
                 st.markdown("**Статус:** " + row['Статус'])
                 st.markdown("**Ремейнинг:** " + row['Ремейнинг'])
-                st.progress(completion / 100)
+                st.progress(min(completion / 100, 1.0))
             
             st.markdown("---")
+            
+            # Отображаем полное примечание, если есть
+            if row.get("_notes"):
+                st.markdown("##### 📋 Примечание:")
+                st.info(row["_notes"])
             
             # Детали шагов
             st.markdown("##### 📝 Детали выполнения по шагам:")
@@ -471,8 +478,8 @@ def main():
                     return 'background-color: #721c24; color: #ffffff'  # Тёмно-красный фон, белый текст
             return ''
         
-        styled_df = df_display.style.applymap(
-            highlight_completion, 
+        styled_df = df_display.style.map(
+            highlight_completion,
             subset=['Выполнение (%)']
         )
         

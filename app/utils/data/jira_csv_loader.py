@@ -27,6 +27,10 @@ class CompletionEvaluation:
     confidence: str = "medium"  # high, medium, low
     notes: Optional[str] = None  # Дополнительные заметки
 
+    def __post_init__(self):
+        """Пересчитываем overall_completion_percentage из шагов для надёжности."""
+        self.overall_completion_percentage = self.calculate_completion_from_steps()
+
     def calculate_completion_from_steps(self) -> float:
         """Рассчитывает процент выполнения на основе оценки шагов."""
         if not self.steps_evaluation:

@@ -346,7 +346,10 @@ class LLMService:
             batch_success = 0
             for issue_key, eval_dict in evaluation_data.items():
                 try:
-                    result[issue_key] = CompletionEvaluation.from_dict(eval_dict)
+                    completion_eval = CompletionEvaluation.from_dict(eval_dict)
+                    # Пересчитываем overall_completion_percentage на основе шагов
+                    completion_eval.overall_completion_percentage = completion_eval.calculate_completion_from_steps()
+                    result[issue_key] = completion_eval
                     batch_success += 1
                 except Exception as e:
                     print(f"  Ошибка при парсинге оценки для {issue_key}: {e}")

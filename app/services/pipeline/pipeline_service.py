@@ -174,6 +174,8 @@ class PipelineService:
                     confidence=eval_data.get('confidence', 'medium'),
                     notes=eval_data.get('notes')
                 )
+                # Пересчитываем overall_completion_percentage на основе шагов
+                task.completion_evaluation.overall_completion_percentage = task.completion_evaluation.calculate_completion_from_steps()
             
             tasks.append(task)
         
@@ -251,10 +253,47 @@ class PipelineService:
             if task.issue_key in plans_result:
                 task.implementation_plan = plans_result[task.issue_key]
         
+        # Повторная генерация планов для оставшихся задач (если нужно)
+        tasks_with_decomposition = [t for t in tasks if t.decomposition]
+        tasks_needing_plan = [t for t in tasks_with_decomposition if not t.implementation_plan]
+        max_plan_retries = 1
+        retry_attempt = 0
+        while tasks_needing_plan and retry_attempt < max_plan_retries:
+            retry_attempt += 1
+            print(f"\nДополнительный запрос генерации плана ({retry_attempt}/{max_plan_retries}) для {len(tasks_needing_plan)} задач...")
+            retry_plans = llm.generate_implementation_plans(
+                tasks=tasks_needing_plan,
+                rules_path=str(rules)
+            )
+            for task in tasks_needing_plan:
+                if task.issue_key in retry_plans:
+                    task.implementation_plan = retry_plans[task.issue_key]
+            tasks_needing_plan = [t for t in tasks_with_decomposition if not t.implementation_plan]
+
+        if tasks_needing_plan:
+            missing_keys = ', '.join(t.issue_key for t in tasks_needing_plan)
+            print(f"⚠️ Не удалось сгенерировать план реализации для задач: {missing_keys}")
+        
         plans_count = sum(1 for t in tasks if t.implementation_plan)
         print(f"Задач с планом реализации: {plans_count}/{len(tasks)}")
         
         return tasks
+    
+    def _apply_completion_results(
+        self,
+        tasks: List[JiraTask],
+        completion_result: Dict[str, CompletionEvaluation]
+    ) -> int:
+        """Применяет оценки выполнения к задачам и возвращает количество новых оценок."""
+        if not completion_result:
+            return 0
+        
+        applied = 0
+        for task in tasks:
+            if task.issue_key in completion_result:
+                task.completion_evaluation = completion_result[task.issue_key]
+                applied += 1
+        return applied
     
     def evaluate_completion(
         self,
@@ -284,9 +323,27 @@ class PipelineService:
         )
         
         # Применяем оценки к задачам
-        for task in tasks:
-            if task.issue_key in completion_result:
-                task.completion_evaluation = completion_result[task.issue_key]
+        applied = self._apply_completion_results(tasks, completion_result)
+        
+        # Повторные запросы для задач без оценки
+        tasks_with_plan = [t for t in tasks if t.implementation_plan]
+        tasks_needing_eval = [t for t in tasks_with_plan if not t.completion_evaluation]
+        max_eval_retries = 1
+        retry_attempt = 0
+        while tasks_needing_eval and retry_attempt < max_eval_retries:
+            retry_attempt += 1
+            print(f"\nДополнительная оценка выполнения ({retry_attempt}/{max_eval_retries}) для {len(tasks_needing_eval)} задач...")
+            retry_result = llm.evaluate_task_completion(
+                tasks=tasks_needing_eval,
+                rules_path=str(rules),
+                batch_size=batch_size
+            )
+            applied += self._apply_completion_results(tasks, retry_result)
+            tasks_needing_eval = [t for t in tasks_with_plan if not t.completion_evaluation]
+        
+        if tasks_needing_eval:
+            missing_keys = ', '.join(t.issue_key for t in tasks_needing_eval)
+            print(f"⚠️ Не удалось получить оценку выполнения для задач: {missing_keys}")
         
         evaluated_count = sum(1 for t in tasks if t.completion_evaluation)
         print(f"Задач с оценкой выполнения: {evaluated_count}/{len(tasks)}")
