@@ -205,7 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-/data/
+
+/data/jira_tasks
+/data/output
+/data/repos
 /config/repo_config.yaml
 /chroma_db/
 /repos/
